@@ -1,0 +1,36 @@
+services:
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: ${DB_PASSWORD}
+      NLS_LANG: AMERICAN_AMERICA.AL32UTF8
+      APP_USER: ${DB_USER}
+      APP_USER_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./src/db:/container-entrypoint-initdb.d:ro
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  api:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_CONNECT_STRING: oracle:1521/XEPDB1
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3000
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+volumes:
+  oracle-data:

@@ -1,0 +1,2 @@
+-- trg_accounts_audit (ACCOUNTS AFTER UPDATE -> AUDIT_LOG) buraya gelecek.
+-- Mimari bölüm 6. Faz 3'te doldurulacak.

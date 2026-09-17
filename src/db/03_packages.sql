@@ -1,0 +1,2 @@
+-- pkg_transfer (do_transfer) ve fn_generate_iban buraya gelecek.
+-- Mimari bölüm 6. Faz 3'te doldurulacak.

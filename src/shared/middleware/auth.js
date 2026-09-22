@@ -6,21 +6,21 @@ function auth(req, res, next) {
   const header = req.headers.authorization || '';
   const [scheme, token] = header.split(' ');
   if (scheme !== 'Bearer' || !token) {
-    return next(new AppError(401, 'UNAUTHORIZED', 'Token gerekli'));
+    return next(new AppError(401, 'UNAUTHORIZED', 'Authentication token required'));
   }
   try {
     const payload = jwt.verify(token, env.jwt.secret, { algorithms: ['HS256'] });
     req.user = { customerId: payload.customerId, role: payload.role };
     return next();
   } catch (err) {
-    return next(new AppError(401, 'UNAUTHORIZED', 'Token geçersiz'));
+    return next(new AppError(401, 'UNAUTHORIZED', 'Invalid or expired token'));
   }
 }
 
 function requireRole(role) {
   return (req, res, next) => {
     if (!req.user || req.user.role !== role) {
-      return next(new AppError(403, 'FORBIDDEN', 'Bu işlem için yetkiniz yok'));
+      return next(new AppError(403, 'FORBIDDEN', 'You are not allowed to perform this action'));
     }
     return next();
   };

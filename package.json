@@ -1,12 +1,13 @@
 {
   "name": "corebank-api",
   "version": "1.0.0",
-  "description": "CoreBank API — bankacılık işlem servisi (modular monolith)",
+  "description": "CoreBank API - banking transaction service built as a modular monolith (Node.js, Express, Oracle, raw SQL + PL/SQL).",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "jest",
-    "lint": "eslint src"
+    "test": "jest --testPathIgnorePatterns=tests/integration",
+    "lint": "eslint src",
+    "test:integration": "jest --runInBand tests/integration"
   },
   "license": "MIT",
   "dependencies": {

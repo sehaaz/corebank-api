@@ -16,8 +16,8 @@ function toTransaction(row) {
 const TS = oracledb.DB_TYPE_TIMESTAMP;
 
 /**
- * pkg_transfer.do_transfer çağrısı. Prosedür iki hesabı kilitler, kaydı yazar
- * ve kendi COMMIT'ini atar; burada commit/rollback yapılmaz.
+ * Calls pkg_transfer.do_transfer. The procedure locks both accounts, writes the
+ * ledger rows and issues its own COMMIT; nothing is committed or rolled back here.
  */
 async function callTransfer(conn, { fromIban, toIban, amount, description }) {
   const result = await conn.execute(

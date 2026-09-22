@@ -1,0 +1,386 @@
+{
+  "info": {
+    "name": "CoreBank API",
+    "description": "CoreBank API - banking transaction service, built as a modular monolith.\n\nHow to use:\n1. Check `baseUrl` (defaults to http://localhost:3000).\n2. Run `identity / Login (CUSTOMER)` - its test script stores the JWT in the `token` collection variable.\n3. Every other request picks that token up automatically.\n\nRequests that need the TELLER role require `identity / Login (TELLER)`, which writes the token to the same variable.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "iban", "value": "TR330006100519786457841326", "type": "string" },
+    { "key": "toIban", "value": "TR230006200119786457841001", "type": "string" },
+    { "key": "referenceNo", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "system",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "identity",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "    pm.expect(pm.response.code).to.eql(201);",
+                  "});",
+                  "",
+                  "pm.test('password hash is not returned', function () {",
+                  "    pm.expect(pm.response.text().toLowerCase()).to.not.include('password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nationalId\": \"12345678901\",\n  \"fullName\": \"New Customer\",\n  \"email\": \"yeni@corebank.test\",\n  \"password\": \"Demo1234!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login (CUSTOMER)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "",
+                  "    pm.test('token returned', function () {",
+                  "        pm.expect(json.token).to.be.a('string').and.not.empty;",
+                  "    });",
+                  "",
+                  "    // Store the token in a collection variable; later requests reuse it.",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    console.log('token stored (CUSTOMER)');",
+                  "",
+                  "    pm.test('JWT carries customerId and role', function () {",
+                  "        const payload = JSON.parse(atob(json.token.split('.')[1]));",
+                  "        pm.expect(payload).to.have.property('customerId');",
+                  "        pm.expect(payload).to.have.property('role');",
+                  "    });",
+                  "} else {",
+                  "    pm.collectionVariables.set('token', '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ayse@corebank.test\",\n  \"password\": \"Demo1234!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login (TELLER)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "    pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    console.log('token stored (TELLER)');",
+                  "",
+                  "    pm.test('role is TELLER', function () {",
+                  "        const payload = JSON.parse(atob(json.token.split('.')[1]));",
+                  "        pm.expect(payload.role).to.eql('TELLER');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"teller@corebank.test\",\n  \"password\": \"Teller1234!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "customers", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "account",
+      "item": [
+        {
+          "name": "Open account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('iban', json.iban);",
+                  "    console.log('iban stored: ' + json.iban);",
+                  "",
+                  "    pm.test('IBAN is a 26-character TR IBAN', function () {",
+                  "        pm.expect(json.iban).to.match(/^TR\\d{24}$/);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"currency\": \"TRY\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts"]
+            }
+          }
+        },
+        {
+          "name": "My accounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts"]
+            }
+          }
+        },
+        {
+          "name": "Account detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/{{iban}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts", "{{iban}}"]
+            }
+          }
+        },
+        {
+          "name": "Change status (TELLER)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"FROZEN\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/{{iban}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts", "{{iban}}", "status"]
+            },
+            "description": "Requires a TELLER token. Run identity / Login (TELLER) first."
+          }
+        }
+      ]
+    },
+    {
+      "name": "transaction",
+      "item": [
+        {
+          "name": "Deposit",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"iban\": \"{{iban}}\",\n  \"amount\": 500.25,\n  \"description\": \"salary\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/deposit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "deposit"]
+            }
+          }
+        },
+        {
+          "name": "Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"iban\": \"{{iban}}\",\n  \"amount\": 250,\n  \"description\": \"atm\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/withdraw",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "withdraw"]
+            }
+          }
+        },
+        {
+          "name": "Transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('referenceNo', json.referenceNo);",
+                  "",
+                  "    pm.test('reference number returned', function () {",
+                  "        pm.expect(json.referenceNo).to.match(/^[0-9A-F]{32}$/);",
+                  "    });",
+                  "} else {",
+                  "    console.log('transfer failed: ' + pm.response.code + ' ' + pm.response.text());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromIban\": \"{{iban}}\",\n  \"toIban\": \"{{toIban}}\",\n  \"amount\": 250,\n  \"description\": \"rent\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/transfer",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "transfer"]
+            },
+            "description": "Limited to 5 requests per minute; exceeding it returns 429 RATE_LIMITED."
+          }
+        },
+        {
+          "name": "Statement",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/{{iban}}/statement?page=1&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts", "{{iban}}", "statement"],
+              "query": [
+                { "key": "from", "value": "2026-09-01", "disabled": true },
+                { "key": "to", "value": "2026-09-30", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "fx",
+      "item": [
+        {
+          "name": "Exchange rates",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/rates",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "rates"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "audit",
+      "item": [
+        {
+          "name": "Audit entries (TELLER)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/audit?table=ACCOUNTS&page=1&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "audit"],
+              "query": [
+                { "key": "table", "value": "ACCOUNTS" },
+                { "key": "from", "value": "2026-09-01", "disabled": true },
+                { "key": "to", "value": "2026-09-30", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "Requires a TELLER token."
+          }
+        }
+      ]
+    }
+  ]
+}

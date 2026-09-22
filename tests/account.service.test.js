@@ -3,7 +3,7 @@ jest.mock('../src/modules/account/account.repository');
 const repo = require('../src/modules/account/account.repository');
 const svc = require('../src/modules/account/account.service');
 
-const conn = {}; // servis conn'u yalnızca repository'ye geçirir
+const conn = {}; // the service only forwards conn to the repository
 
 const account = {
   id: 1,
@@ -18,7 +18,7 @@ const account = {
 beforeEach(() => jest.resetAllMocks());
 
 describe('assertOwnership', () => {
-  test('hesap başkasına aitse FORBIDDEN (403)', async () => {
+  test('returns FORBIDDEN (403) when the account belongs to someone else', async () => {
     repo.findByIban.mockResolvedValue(account);
 
     await expect(svc.assertOwnership(conn, account.iban, 99)).rejects.toMatchObject({
@@ -27,7 +27,7 @@ describe('assertOwnership', () => {
     });
   });
 
-  test('sahibi ise hesabı döner', async () => {
+  test('returns the account when the caller owns it', async () => {
     repo.findByIban.mockResolvedValue(account);
 
     await expect(svc.assertOwnership(conn, account.iban, 42)).resolves.toEqual(account);
@@ -35,7 +35,7 @@ describe('assertOwnership', () => {
 });
 
 describe('assertActive', () => {
-  test('donmuş hesapta ACCOUNT_NOT_ACTIVE (409)', async () => {
+  test('returns ACCOUNT_NOT_ACTIVE (409) for a frozen account', async () => {
     repo.findByIban.mockResolvedValue({ ...account, status: 'FROZEN' });
 
     await expect(svc.assertActive(conn, account.iban)).rejects.toMatchObject({
@@ -44,7 +44,7 @@ describe('assertActive', () => {
     });
   });
 
-  test('kapalı hesapta da ACCOUNT_NOT_ACTIVE (409)', async () => {
+  test('returns ACCOUNT_NOT_ACTIVE (409) for a closed account too', async () => {
     repo.findByIban.mockResolvedValue({ ...account, status: 'CLOSED' });
 
     await expect(svc.assertActive(conn, account.iban)).rejects.toMatchObject({

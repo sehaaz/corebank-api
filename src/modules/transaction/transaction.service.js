@@ -4,13 +4,13 @@ const { getConnection } = require('../../shared/db/pool');
 const AppError = require('../../shared/errors/AppError');
 const repo = require('./transaction.repository');
 
-/** Para doğrulaması burada da yapılır; schema katmanına güvenip kısılmaz. */
+/** Money validation is repeated here; it is never relaxed by trusting the schema layer. */
 function assertAmount(amount) {
   if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
-    throw new AppError(400, 'INVALID_AMOUNT', 'Tutar pozitif olmalı');
+    throw new AppError(400, 'INVALID_AMOUNT', 'Amount must be positive');
   }
   if (Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-9) {
-    throw new AppError(400, 'INVALID_AMOUNT', 'Tutar en fazla 2 ondalık olabilir');
+    throw new AppError(400, 'INVALID_AMOUNT', 'Amount cannot have more than 2 decimal places');
   }
 }
 
@@ -21,7 +21,7 @@ async function move(conn, { iban, amount, description, customerId, type }) {
   const acc = await account.assertActive(conn, iban);
 
   if (type === 'WITHDRAW' && acc.balance < amount) {
-    throw new AppError(409, 'INSUFFICIENT_FUNDS', 'Yetersiz bakiye');
+    throw new AppError(409, 'INSUFFICIENT_FUNDS', 'Insufficient funds');
   }
 
   const delta = type === 'WITHDRAW' ? -amount : amount;
@@ -50,18 +50,18 @@ async function withdraw(conn, params) {
 }
 
 /**
- * Transfer, pkg_transfer.do_transfer içinde yapılır. Prosedür iki hesabı
- * IBAN sırasına göre kilitler, iki bacağı da yazar ve kendi COMMIT'ini atar.
- * Bu yüzden burada withTransaction KULLANILMAZ — sarmalanırsa prosedürün
- * commit'inin üstüne ikinci bir commit atılmış olurdu. Sadece bağlantı
- * alınır ve iş bitince kapatılır.
+ * Transfers run inside pkg_transfer.do_transfer. The procedure locks both
+ * accounts in IBAN order, writes both ledger legs and issues its own COMMIT.
+ * That is why withTransaction is NOT used here: wrapping the call would add a
+ * second commit on top of the procedure's. Only the connection is acquired and
+ * released.
  */
 async function transfer({ fromIban, toIban, amount, description, customerId }) {
   assertAmount(amount);
 
   const conn = await getConnection();
   try {
-    // Sahiplik DB'den doğrulanır; IBAN'ı bilmek yetmez.
+    // Ownership is verified against the database; knowing the IBAN is not enough.
     await account.assertOwnership(conn, fromIban, customerId);
 
     const referenceNo = await repo.callTransfer(conn, {

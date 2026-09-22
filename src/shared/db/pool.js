@@ -13,7 +13,7 @@ async function initPool() {
     poolMin: 2,
     poolMax: 10,
   });
-  logger.info('Oracle pool hazır');
+  logger.info('Oracle connection pool ready');
 }
 
 async function getConnection() {
@@ -22,7 +22,7 @@ async function getConnection() {
 
 async function closePool() {
   await oracledb.getPool().close(10);
-  logger.info('Oracle pool kapatıldı');
+  logger.info('Oracle connection pool closed');
 }
 
 module.exports = { initPool, getConnection, closePool };

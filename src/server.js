@@ -5,10 +5,10 @@ const logger = require('./shared/logger');
 
 async function start() {
   await initPool();
-  const server = app.listen(env.port, () => logger.info(`API dinliyor: ${env.port}`));
+  const server = app.listen(env.port, () => logger.info(`API listening on port ${env.port}`));
 
   const shutdown = async (signal) => {
-    logger.info(`${signal} alındı, kapatılıyor`);
+    logger.info(`${signal} received, shutting down`);
     server.close(async () => {
       await closePool();
       process.exit(0);
@@ -20,6 +20,6 @@ async function start() {
 }
 
 start().catch((err) => {
-  logger.error('Başlatma hatası', { message: err.message });
+  logger.error('Startup failed', { message: err.message });
   process.exit(1);
 });

@@ -15,8 +15,8 @@ function movement(handler) {
   };
 }
 
-// Transfer withTransaction ile sarmalanmaz: pkg_transfer.do_transfer kendi
-// COMMIT'ini atar, bağlantı yönetimi servis katmanında yapılır.
+// Transfer is not wrapped in withTransaction: pkg_transfer.do_transfer issues
+// its own COMMIT, so the service layer owns the connection instead.
 async function transfer(req, res, next) {
   try {
     const { fromIban, toIban, amount, description } = req.body;
@@ -33,7 +33,7 @@ async function transfer(req, res, next) {
   }
 }
 
-/** Sadece tarih verilmişse günün tamamını kapsa diye üst sınır ertesi güne alınır. */
+/** When only a date is given, the upper bound moves to the next day so the whole day is covered. */
 function parseTo(value) {
   if (!value) return null;
   const date = new Date(value);

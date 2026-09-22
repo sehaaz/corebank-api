@@ -2,3 +2,7 @@ node_modules/
 .env
 coverage/
 *.log
+
+# Local working notes and planning docs (not part of the deliverable)
+CLAUDE.md
+PROJE-2-*.md

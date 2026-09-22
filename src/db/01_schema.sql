@@ -1,12 +1,12 @@
--- Bu dosya container tarafından CDB$ROOT'ta "sqlplus / as sysdba" ile
--- çalıştırılır (gvenzl entrypoint). Objelerin SYS yerine uygulama şemasında
--- oluşması için önce doğru PDB'ye ve şemaya geçilir.
--- COREBANK, .env'deki DB_USER ile aynı olmalıdır.
+-- The container runs this file as "sqlplus / as sysdba" against CDB$ROOT
+-- (gvenzl entrypoint). Switch to the right PDB and schema first, otherwise the
+-- objects would be created under SYS instead of the application schema.
+-- COREBANK must match DB_USER in .env.
 ALTER SESSION SET CONTAINER = XEPDB1;
 ALTER SESSION SET CURRENT_SCHEMA = COREBANK;
 
--- CoreBank — tablolar, sequence'ler, index'ler
--- Mimari bölüm 5. Modül sahipliği tekildir; her tablo tek bir modüle aittir.
+-- CoreBank - tables, sequences and indexes.
+-- Table ownership is exclusive: every table belongs to exactly one module.
 
 -- ---------------------------------------------------------------- sequences
 CREATE SEQUENCE SEQ_CUSTOMERS    START WITH 1 INCREMENT BY 1 NOCACHE;
@@ -14,7 +14,7 @@ CREATE SEQUENCE SEQ_ACCOUNTS     START WITH 1 INCREMENT BY 1 NOCACHE;
 CREATE SEQUENCE SEQ_TRANSACTIONS START WITH 1 INCREMENT BY 1 NOCACHE;
 CREATE SEQUENCE SEQ_AUDIT_LOG    START WITH 1 INCREMENT BY 1 NOCACHE;
 
--- --------------------------------------------------- identity modülü tablosu
+-- ---------------------------------------------------- owned by: identity
 CREATE TABLE CUSTOMERS (
   id            NUMBER            PRIMARY KEY,
   national_id   VARCHAR2(11)      NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE CUSTOMERS (
   CONSTRAINT chk_customers_role       CHECK (role IN ('CUSTOMER', 'TELLER'))
 );
 
--- ---------------------------------------------------- account modülü tablosu
+-- ----------------------------------------------------- owned by: account
 CREATE TABLE ACCOUNTS (
   id          NUMBER        PRIMARY KEY,
   customer_id NUMBER        NOT NULL,
@@ -45,16 +45,16 @@ CREATE TABLE ACCOUNTS (
   CONSTRAINT chk_balance            CHECK (balance >= 0)
 );
 
--- ------------------------------------------------ transaction modülü tablosu
+-- ------------------------------------------------- owned by: transaction
 CREATE TABLE TRANSACTIONS (
   id            NUMBER        PRIMARY KEY,
   account_id    NUMBER        NOT NULL,
   counter_iban  VARCHAR2(26),
-  -- 'TRANSFER_OUT' 12 karakter; VARCHAR2(10) en uzun değeri alamıyor.
+  -- 'TRANSFER_OUT' is 12 characters; VARCHAR2(10) cannot hold the longest value.
   type          VARCHAR2(12)  NOT NULL,
   amount        NUMBER(18,2)  NOT NULL,
   balance_after NUMBER(18,2)  NOT NULL,
-  reference_no  VARCHAR2(36)  NOT NULL,  -- transferin iki bacağı aynı referansı paylaşır
+  reference_no  VARCHAR2(36)  NOT NULL,  -- both legs of a transfer share one reference
   description   VARCHAR2(200),
   created_at    TIMESTAMP     DEFAULT SYSTIMESTAMP NOT NULL,
   CONSTRAINT fk_tx_account FOREIGN KEY (account_id) REFERENCES ACCOUNTS(id),
@@ -62,7 +62,7 @@ CREATE TABLE TRANSACTIONS (
   CONSTRAINT chk_tx_amount CHECK (amount > 0)
 );
 
--- --------------------------------------------------------- fx modülü tablosu
+-- ---------------------------------------------------------- owned by: fx
 CREATE TABLE EXCHANGE_RATES (
   base_currency   VARCHAR2(3)   NOT NULL,
   target_currency VARCHAR2(3)   NOT NULL,
@@ -72,7 +72,7 @@ CREATE TABLE EXCHANGE_RATES (
   CONSTRAINT chk_fx_rate       CHECK (rate > 0)
 );
 
--- ------------------------------------------------------ audit modülü tablosu
+-- ------------------------------------------------------- owned by: audit
 CREATE TABLE AUDIT_LOG (
   id         NUMBER        PRIMARY KEY,
   table_name VARCHAR2(30)  NOT NULL,
@@ -83,6 +83,6 @@ CREATE TABLE AUDIT_LOG (
   created_at TIMESTAMP     DEFAULT SYSTIMESTAMP NOT NULL
 );
 
--- ------------------------------------------------------------------ index'ler
+-- -------------------------------------------------------------- indexes
 CREATE INDEX idx_tx_account_date  ON TRANSACTIONS(account_id, created_at DESC);
 CREATE INDEX idx_accounts_customer ON ACCOUNTS(customer_id);

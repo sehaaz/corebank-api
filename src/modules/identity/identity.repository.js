@@ -29,7 +29,7 @@ async function insert(conn, { nationalId, fullName, email, passwordHash }) {
   return { id: result.outBinds.id[0], role: result.outBinds.role[0] };
 }
 
-/** Parola hash'ini de döner — yalnızca login için. */
+/** Also returns the password hash; for login only. */
 async function findCredentialsByEmail(conn, email) {
   const result = await conn.execute(
     `SELECT id, role, password_hash FROM CUSTOMERS WHERE email = :email`,

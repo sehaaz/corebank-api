@@ -6,7 +6,7 @@ function validate(req, res, next) {
 
   return res.status(400).json({
     error: 'VALIDATION_ERROR',
-    message: 'Girdi doğrulaması başarısız',
+    message: 'Request validation failed',
     status: 400,
     details: result.array().map((e) => ({ field: e.path, message: e.msg })),
   });

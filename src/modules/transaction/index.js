@@ -1,4 +1,4 @@
-// Dışarıya açılan tek yüzey. Hiçbir modül transaction'a bağımlı değildir.
+// The only public surface of this module. No other module depends on transaction.
 module.exports = {
   router: require('./transaction.routes'),
 };

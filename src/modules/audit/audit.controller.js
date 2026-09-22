@@ -1,7 +1,7 @@
 const withTransaction = require('../../shared/db/withTransaction');
 const svc = require('./audit.service');
 
-/** Sadece tarih verilmişse günün tamamını kapsa diye üst sınır ertesi güne alınır. */
+/** When only a date is given, the upper bound moves to the next day so the whole day is covered. */
 function parseTo(value) {
   if (!value) return null;
   const date = new Date(value);

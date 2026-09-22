@@ -19,7 +19,7 @@ async function listSummaries(conn, customerId) {
 async function getByIban(conn, iban) {
   const account = await repo.findByIban(conn, iban);
   if (!account) {
-    throw new AppError(404, 'ACCOUNT_NOT_FOUND', 'Hesap bulunamadı');
+    throw new AppError(404, 'ACCOUNT_NOT_FOUND', 'Account not found');
   }
   return account;
 }
@@ -27,7 +27,7 @@ async function getByIban(conn, iban) {
 async function assertOwnership(conn, iban, customerId) {
   const account = await getByIban(conn, iban);
   if (account.customerId !== customerId) {
-    throw new AppError(403, 'FORBIDDEN', 'Bu hesap size ait değil');
+    throw new AppError(403, 'FORBIDDEN', 'You do not own this account');
   }
   return account;
 }
@@ -35,20 +35,20 @@ async function assertOwnership(conn, iban, customerId) {
 async function assertActive(conn, iban) {
   const account = await getByIban(conn, iban);
   if (account.status !== 'ACTIVE') {
-    throw new AppError(409, 'ACCOUNT_NOT_ACTIVE', 'Hesap işleme kapalı');
+    throw new AppError(409, 'ACCOUNT_NOT_ACTIVE', 'Account is not active');
   }
   return account;
 }
 
-/** Satırı FOR UPDATE ile kilitler, bakiyeyi günceller, yeni bakiyeyi döner. */
+/** Locks the row with FOR UPDATE, applies the delta and returns the new balance. */
 async function adjustBalance(conn, iban, delta) {
   const account = await repo.lockByIban(conn, iban);
   if (!account) {
-    throw new AppError(404, 'ACCOUNT_NOT_FOUND', 'Hesap bulunamadı');
+    throw new AppError(404, 'ACCOUNT_NOT_FOUND', 'Account not found');
   }
   const balance = round2(account.balance + delta);
   if (balance < 0) {
-    throw new AppError(409, 'INSUFFICIENT_FUNDS', 'Yetersiz bakiye');
+    throw new AppError(409, 'INSUFFICIENT_FUNDS', 'Insufficient funds');
   }
   await repo.updateBalance(conn, account.id, balance);
   return balance;
@@ -57,7 +57,7 @@ async function adjustBalance(conn, iban, delta) {
 async function changeStatus(conn, iban, status) {
   const account = await getByIban(conn, iban);
   if (status === 'CLOSED' && account.balance !== 0) {
-    throw new AppError(409, 'ACCOUNT_NOT_EMPTY', 'Bakiyesi olan hesap kapatılamaz');
+    throw new AppError(409, 'ACCOUNT_NOT_EMPTY', 'An account with a non-zero balance cannot be closed');
   }
   await repo.updateStatus(conn, iban, status);
   return { ...account, status };

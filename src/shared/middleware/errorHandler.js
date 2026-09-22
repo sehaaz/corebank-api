@@ -14,14 +14,14 @@ function errorHandler(err, req, res, next) {
     });
   }
 
-  // Beklenmeyen hata: detay yalnızca log'a, client'a sızdırılmaz.
-  logger.error(`${req.method} ${req.path} beklenmeyen hata`, {
+  // Unexpected error: details go to the log only, never to the client.
+  logger.error(`${req.method} ${req.path} unhandled error`, {
     message: err.message,
     stack: err.stack,
   });
   return res.status(500).json({
     error: 'INTERNAL_ERROR',
-    message: 'Beklenmeyen bir hata oluştu',
+    message: 'An unexpected error occurred',
     status: 500,
   });
 }

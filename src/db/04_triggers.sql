@@ -1,32 +1,32 @@
--- Bu dosya container tarafından CDB$ROOT'ta "sqlplus / as sysdba" ile
--- çalıştırılır (gvenzl entrypoint). Objelerin SYS yerine uygulama şemasında
--- oluşması için önce doğru PDB'ye ve şemaya geçilir.
--- COREBANK, .env'deki DB_USER ile aynı olmalıdır.
+-- The container runs this file as "sqlplus / as sysdba" against CDB$ROOT
+-- (gvenzl entrypoint). Switch to the right PDB and schema first, otherwise the
+-- objects would be created under SYS instead of the application schema.
+-- COREBANK must match DB_USER in .env.
 ALTER SESSION SET CONTAINER = XEPDB1;
 ALTER SESSION SET CURRENT_SCHEMA = COREBANK;
 
 -- =====================================================================
--- CoreBank — trigger'lar (mimari bölüm 6)
+-- CoreBank - triggers.
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
--- trg_accounts_audit — ACCOUNTS üzerindeki para/durum değişikliklerini
--- AUDIT_LOG'a yazar.
+-- trg_accounts_audit - records balance and status changes on ACCOUNTS
+-- into AUDIT_LOG.
 --
--- WHEN koşulu sayesinde trigger yalnızca balance veya status gerçekten
--- değiştiğinde çalışır; daily_limit gibi alanların güncellenmesi ya da
--- aynı değerin tekrar yazılması log üretmez.
+-- The WHEN clause makes the trigger fire only when balance or status actually
+-- changes; updating a field such as daily_limit, or rewriting the same value,
+-- produces no log row.
 --
--- Not: balance ve status NOT NULL olduğu için <> karşılaştırması
--- güvenlidir, ayrıca NULL kontrolüne gerek yok.
+-- Note: balance and status are NOT NULL, so the <> comparison is safe and no
+-- extra NULL handling is required.
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE TRIGGER trg_accounts_audit
   AFTER UPDATE ON ACCOUNTS
   FOR EACH ROW
   WHEN (OLD.balance <> NEW.balance OR OLD.status <> NEW.status)
 DECLARE
-  -- Ondalık ayracı NLS ayarından bağımsız olarak nokta olmalı, yoksa
-  -- üretilen metin geçerli JSON olmaz (1234,56 gibi).
+  -- The decimal separator must be a dot regardless of the NLS settings,
+  -- otherwise the generated text would not be valid JSON (e.g. 1234,56).
   c_num_fmt CONSTANT VARCHAR2(30) := 'FM99999999999999990.00';
   c_nls     CONSTANT VARCHAR2(40) := 'NLS_NUMERIC_CHARACTERS = ''.,''';
 

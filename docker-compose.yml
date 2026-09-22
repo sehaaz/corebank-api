@@ -16,8 +16,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 60
-      # Oracle ilk açılışta veri dosyalarını açar; bu makinede ~6.5 dk sürdü.
-      # start_period boyunca başarısız denemeler retries'a sayılmaz.
+      # On a cold start Oracle unpacks its data files, which can take several
+      # minutes. Failures during start_period do not count towards retries.
       start_period: 900s
 
   api:

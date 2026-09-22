@@ -1,9 +1,9 @@
 const { getConnection } = require('./pool');
 
 /**
- * Transaction sınırı burada açılır. fn'e verilen conn, çağrılan modüllerin
- * public fonksiyonlarına parametre olarak geçirilir; repository'ler kendi
- * başına commit/rollback yapmaz.
+ * The transaction boundary is opened here. The connection handed to `fn` is
+ * passed on to the public functions of any module it calls; repositories never
+ * commit or roll back on their own.
  */
 async function withTransaction(fn) {
   const conn = await getConnection();

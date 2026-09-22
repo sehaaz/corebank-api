@@ -1,0 +1,91 @@
+{
+  "root": true,
+  "env": {
+    "node": true,
+    "commonjs": true,
+    "es2022": true,
+    "jest": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "plugins": [
+    "import"
+  ],
+  "rules": {
+    "import/no-restricted-paths": [
+      "error",
+      {
+        "basePath": ".",
+        "zones": [
+          {
+            "target": "./src/modules/identity",
+            "from": "./src/modules",
+            "except": [
+              "./identity",
+              "./account/index.js",
+              "./transaction/index.js",
+              "./fx/index.js",
+              "./audit/index.js"
+            ],
+            "message": "Module boundary: another module may only be imported through its index.js."
+          },
+          {
+            "target": "./src/modules/account",
+            "from": "./src/modules",
+            "except": [
+              "./account",
+              "./identity/index.js",
+              "./transaction/index.js",
+              "./fx/index.js",
+              "./audit/index.js"
+            ],
+            "message": "Module boundary: another module may only be imported through its index.js."
+          },
+          {
+            "target": "./src/modules/transaction",
+            "from": "./src/modules",
+            "except": [
+              "./transaction",
+              "./identity/index.js",
+              "./account/index.js",
+              "./fx/index.js",
+              "./audit/index.js"
+            ],
+            "message": "Module boundary: another module may only be imported through its index.js."
+          },
+          {
+            "target": "./src/modules/fx",
+            "from": "./src/modules",
+            "except": [
+              "./fx",
+              "./identity/index.js",
+              "./account/index.js",
+              "./transaction/index.js",
+              "./audit/index.js"
+            ],
+            "message": "Module boundary: another module may only be imported through its index.js."
+          },
+          {
+            "target": "./src/modules/audit",
+            "from": "./src/modules",
+            "except": [
+              "./audit",
+              "./identity/index.js",
+              "./account/index.js",
+              "./transaction/index.js",
+              "./fx/index.js"
+            ],
+            "message": "Module boundary: another module may only be imported through its index.js."
+          },
+          {
+            "target": "./src/shared",
+            "from": "./src/modules",
+            "message": "shared/ must not depend on any module."
+          }
+        ]
+      }
+    ]
+  }
+}

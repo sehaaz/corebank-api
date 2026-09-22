@@ -1,6 +1,6 @@
 const { body, param } = require('express-validator');
 
-const ibanParam = param('iban').matches(/^TR\d{24}$/).withMessage('Geçersiz IBAN');
+const ibanParam = param('iban').matches(/^TR\d{24}$/).withMessage('Invalid IBAN');
 
 const open = [body('currency').isIn(['TRY', 'USD', 'EUR'])];
 

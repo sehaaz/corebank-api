@@ -3,21 +3,22 @@ const rateLimit = require('express-rate-limit');
 const { auth } = require('../../shared/middleware/auth');
 const validate = require('../../shared/middleware/validate');
 const AppError = require('../../shared/errors/AppError');
+const env = require('../../shared/config/env');
 const schema = require('./transaction.schema');
 const controller = require('./transaction.controller');
 
 const router = express.Router();
 
-// Transfer için ayrı ve sıkı limit: müşteri başına dakikada 5 deneme.
-// auth'tan sonra çalıştığı için anahtar IP değil customerId.
+// A separate, stricter limit for transfers: N attempts per customer per minute.
+// It runs after auth, so the key is the customer id rather than the IP.
 const transferLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 5,
+  limit: env.transferRateLimit,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => String(req.user.customerId),
   handler: (req, res, next) =>
-    next(new AppError(429, 'RATE_LIMITED', 'Çok fazla transfer denemesi, sonra tekrar deneyin')),
+    next(new AppError(429, 'RATE_LIMITED', 'Too many transfer attempts, please try again later')),
 });
 
 router.post('/transactions/deposit', auth, schema.movement, validate, controller.deposit);

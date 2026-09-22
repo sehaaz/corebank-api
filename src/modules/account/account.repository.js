@@ -18,7 +18,7 @@ async function nextId(conn) {
   return result.rows[0].ID;
 }
 
-/** IBAN üretimi PL/SQL tarafında (fn_generate_iban). */
+/** IBAN generation lives in PL/SQL (fn_generate_iban). */
 async function generateIban(conn, id) {
   const result = await conn.execute(
     `SELECT fn_generate_iban(:id) AS IBAN FROM DUAL`,
@@ -44,7 +44,7 @@ async function findByIban(conn, iban) {
   return toAccount(result.rows[0]);
 }
 
-/** Satırı kilitler — adjustBalance dışında kullanılmamalı. */
+/** Locks the row; must not be used outside adjustBalance. */
 async function lockByIban(conn, iban) {
   const result = await conn.execute(
     `SELECT id, customer_id, iban, currency, balance, daily_limit, status, created_at

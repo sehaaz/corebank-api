@@ -22,8 +22,8 @@ beforeEach(() => {
   repo.insert.mockResolvedValue({ id: 9, createdAt: new Date() });
 });
 
-describe('tutar doğrulaması', () => {
-  test('negatif tutar INVALID_AMOUNT (400)', async () => {
+describe('amount validation', () => {
+  test('rejects a negative amount with INVALID_AMOUNT (400)', async () => {
     await expect(svc.deposit(conn, base({ amount: -10 }))).rejects.toMatchObject({
       status: 400,
       code: 'INVALID_AMOUNT',
@@ -31,14 +31,14 @@ describe('tutar doğrulaması', () => {
     expect(account.adjustBalance).not.toHaveBeenCalled();
   });
 
-  test('sıfır tutar INVALID_AMOUNT (400)', async () => {
+  test('rejects a zero amount with INVALID_AMOUNT (400)', async () => {
     await expect(svc.deposit(conn, base({ amount: 0 }))).rejects.toMatchObject({
       status: 400,
       code: 'INVALID_AMOUNT',
     });
   });
 
-  test('3 ondalıklı tutar INVALID_AMOUNT (400)', async () => {
+  test('rejects an amount with 3 decimal places (400)', async () => {
     await expect(svc.deposit(conn, base({ amount: 10.123 }))).rejects.toMatchObject({
       status: 400,
       code: 'INVALID_AMOUNT',
@@ -46,13 +46,13 @@ describe('tutar doğrulaması', () => {
     expect(repo.insert).not.toHaveBeenCalled();
   });
 
-  test('2 ondalıklı tutar kabul edilir', async () => {
+  test('accepts an amount with 2 decimal places', async () => {
     await expect(svc.deposit(conn, base({ amount: 10.12 }))).resolves.toMatchObject({ id: 9 });
   });
 });
 
 describe('withdraw', () => {
-  test('yetersiz bakiyede INSUFFICIENT_FUNDS (409), bakiyeye dokunulmaz', async () => {
+  test('returns INSUFFICIENT_FUNDS (409) and leaves the balance untouched', async () => {
     await expect(svc.withdraw(conn, base({ amount: 500 }))).rejects.toMatchObject({
       status: 409,
       code: 'INSUFFICIENT_FUNDS',
@@ -61,7 +61,7 @@ describe('withdraw', () => {
     expect(repo.insert).not.toHaveBeenCalled();
   });
 
-  test('bakiyeyi eksi yönde günceller ve kaydı yazar', async () => {
+  test('applies a negative delta and writes the ledger row', async () => {
     account.adjustBalance.mockResolvedValue(50);
 
     const result = await svc.withdraw(conn, base({ amount: 50 }));
@@ -75,9 +75,9 @@ describe('withdraw', () => {
   });
 });
 
-describe('sahiplik', () => {
-  test('başkasının hesabında FORBIDDEN (403)', async () => {
-    account.assertOwnership.mockRejectedValue(new AppError(403, 'FORBIDDEN', 'Bu hesap size ait değil'));
+describe('ownership', () => {
+  test('returns FORBIDDEN (403) for someone else account', async () => {
+    account.assertOwnership.mockRejectedValue(new AppError(403, 'FORBIDDEN', 'You do not own this account'));
 
     await expect(svc.deposit(conn, base({ customerId: 99 }))).rejects.toMatchObject({
       status: 403,
@@ -86,8 +86,8 @@ describe('sahiplik', () => {
     expect(account.adjustBalance).not.toHaveBeenCalled();
   });
 
-  test('ekstrede de sahiplik kontrol edilir', async () => {
-    account.assertOwnership.mockRejectedValue(new AppError(403, 'FORBIDDEN', 'Bu hesap size ait değil'));
+  test('checks ownership on the statement endpoint as well', async () => {
+    account.assertOwnership.mockRejectedValue(new AppError(403, 'FORBIDDEN', 'You do not own this account'));
 
     await expect(
       svc.statement(conn, { iban: IBAN, customerId: 99, from: null, to: null, page: 1, size: 20 })
@@ -96,10 +96,10 @@ describe('sahiplik', () => {
   });
 });
 
-describe('deposit — donmuş hesap', () => {
-  test('ACCOUNT_NOT_ACTIVE (409)', async () => {
+describe('deposit into a frozen account', () => {
+  test('returns ACCOUNT_NOT_ACTIVE (409)', async () => {
     account.assertActive.mockRejectedValue(
-      new AppError(409, 'ACCOUNT_NOT_ACTIVE', 'Hesap işleme kapalı')
+      new AppError(409, 'ACCOUNT_NOT_ACTIVE', 'Account is not active')
     );
 
     await expect(svc.deposit(conn, base())).rejects.toMatchObject({

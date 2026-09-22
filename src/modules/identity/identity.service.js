@@ -9,8 +9,8 @@ const BCRYPT_COST = 12;
 
 async function register({ nationalId, fullName, email, password }) {
   const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
-  // email / national_id çakışması UNIQUE constraint'ten ORA-00001 olarak gelir
-  // ve errorHandler tarafından 409 DUPLICATE'e çevrilir.
+  // An email / national_id clash surfaces as ORA-00001 from the UNIQUE
+  // constraint and is mapped to 409 DUPLICATE by the error handler.
   const { id, role } = await withTransaction((conn) =>
     repo.insert(conn, { nationalId, fullName, email, passwordHash })
   );
@@ -21,7 +21,7 @@ async function login({ email, password }) {
   const found = await withTransaction((conn) => repo.findCredentialsByEmail(conn, email));
   const ok = found && (await bcrypt.compare(password, found.passwordHash));
   if (!ok) {
-    throw new AppError(401, 'UNAUTHORIZED', 'E-posta veya parola hatalı');
+    throw new AppError(401, 'UNAUTHORIZED', 'Invalid email or password');
   }
   const token = jwt.sign({ customerId: found.id, role: found.role }, env.jwt.secret, {
     algorithm: 'HS256',
@@ -33,7 +33,7 @@ async function login({ email, password }) {
 async function getById(conn, id) {
   const customer = await repo.findById(conn, id);
   if (!customer) {
-    throw new AppError(404, 'CUSTOMER_NOT_FOUND', 'Müşteri bulunamadı');
+    throw new AppError(404, 'CUSTOMER_NOT_FOUND', 'Customer not found');
   }
   return customer;
 }

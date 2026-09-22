@@ -1,27 +1,27 @@
--- Bu dosya container tarafından CDB$ROOT'ta "sqlplus / as sysdba" ile
--- çalıştırılır (gvenzl entrypoint). Objelerin SYS yerine uygulama şemasında
--- oluşması için önce doğru PDB'ye ve şemaya geçilir.
--- COREBANK, .env'deki DB_USER ile aynı olmalıdır.
+-- The container runs this file as "sqlplus / as sysdba" against CDB$ROOT
+-- (gvenzl entrypoint). Switch to the right PDB and schema first, otherwise the
+-- objects would be created under SYS instead of the application schema.
+-- COREBANK must match DB_USER in .env.
 ALTER SESSION SET CONTAINER = XEPDB1;
 ALTER SESSION SET CURRENT_SCHEMA = COREBANK;
 
 -- =====================================================================
--- CoreBank — PL/SQL nesneleri (mimari bölüm 6)
--- Transfer tek bir stored procedure içinde yapılır: yarı tamamlanmış
--- transfer imkânsızdır ve kilit tutma süresi minimumda kalır.
+-- CoreBank - PL/SQL objects.
+-- A transfer runs entirely inside one stored procedure: a half-applied
+-- transfer is impossible and locks are held for the shortest time possible.
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
--- fn_generate_iban — hesap id'sinden TR IBAN üretir (mod-97 kontrol hanesi)
+-- fn_generate_iban - builds a TR IBAN from an account id (mod-97 check digits)
 --
--- TR IBAN yapısı (26 karakter):
---   TR | 2 kontrol hanesi | 5 banka kodu | 1 rezerv | 16 hesap numarası
+-- TR IBAN layout (26 characters):
+--   TR | 2 check digits | 5 bank code | 1 reserved | 16 account number
 --
--- Kontrol hanesi ISO 13616'ya göre hesaplanır:
---   1. BBAN'ın sonuna ülke kodu + '00' eklenir  -> "<bban>TR00"
---   2. Harfler sayıya çevrilir (A=10 ... R=27, T=29)
---   3. Oluşan sayının 97'ye bölümünden kalan bulunur
---   4. Kontrol hanesi = 98 - kalan
+-- The check digits follow ISO 13616:
+--   1. Append the country code + '00' to the BBAN  -> "<bban>TR00"
+--   2. Replace letters with numbers (A=10 ... R=27, T=29)
+--   3. Take the remainder of that number modulo 97
+--   4. Check digits = 98 - remainder
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_generate_iban(p_account_id IN NUMBER)
   RETURN VARCHAR2
@@ -35,12 +35,12 @@ IS
   v_remainder  NUMBER;
   v_check      NUMBER;
 BEGIN
-  -- BBAN: banka kodu + rezerv + 16 haneye sola sıfır doldurulmuş hesap no
+  -- BBAN: bank code + reserved digit + account number left-padded to 16 digits
   v_bban := c_bank_code || c_reserved || LPAD(TO_CHAR(p_account_id), 16, '0');
 
-  -- Sona 'TR00' eklenir. T=29, R=27 olduğundan doğrudan '2927' || '00' yazılır.
-  -- Sonuç 28 hane; Oracle NUMBER 38 basamağa kadar tam sayıyı kayıpsız tutar,
-  -- bu yüzden parçalı mod hesabına gerek yok.
+  -- 'TR00' is appended. T=29 and R=27, so '2927' || '00' is written directly.
+  -- The result is 28 digits; Oracle NUMBER holds integers up to 38 digits
+  -- exactly, so no chunked modulo arithmetic is needed.
   v_rearranged := v_bban || '2927' || '00';
 
   v_remainder := MOD(TO_NUMBER(v_rearranged), 97);
@@ -51,7 +51,7 @@ END fn_generate_iban;
 /
 
 -- ---------------------------------------------------------------------
--- pkg_transfer — hesaplar arası para transferi
+-- pkg_transfer - money transfer between accounts
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE PACKAGE pkg_transfer AS
   PROCEDURE do_transfer(
@@ -90,13 +90,13 @@ CREATE OR REPLACE PACKAGE BODY pkg_transfer AS
     v_credit_amount NUMBER;
   BEGIN
     --------------------------------------------------------------------
-    -- 1) İki hesabı IBAN'ın alfabetik sırasına göre FOR UPDATE ile kilitle.
+    -- 1) Lock both accounts with FOR UPDATE, in alphabetical IBAN order.
     --
-    -- Kilitler HER ZAMAN küçük IBAN'dan büyük IBAN'a doğru alınır.
-    -- A->B ve B->A transferleri aynı anda çalışsa bile ikisi de kilitleri
-    -- aynı sırayla istediği için karşılıklı bekleme (deadlock) oluşamaz.
-    -- Sıranın hesabın rolüne (gönderen/alıcı) göre DEĞİL, sabit bir
-    -- kritere göre belirlenmesi kritik nokta budur.
+    -- Locks are ALWAYS taken from the lower IBAN to the higher one. Even when
+    -- A->B and B->A run at the same time, both request the locks in the same
+    -- order, so they can never wait on each other (no deadlock).
+    -- The decisive point is that the order comes from a fixed criterion, NOT
+    -- from the role of the account (sender/receiver).
     --------------------------------------------------------------------
     IF p_from_iban < p_to_iban THEN
       SELECT id, balance, currency, status, daily_limit
@@ -117,7 +117,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_transfer AS
     END IF;
 
     --------------------------------------------------------------------
-    -- 2) Aynı hesap mı, ikisi de ACTIVE mi?
+    -- 2) Reject a self-transfer, and require both accounts to be ACTIVE.
     --------------------------------------------------------------------
     IF v_from_id = v_to_id THEN
       RAISE_APPLICATION_ERROR(-20003, 'SAME_ACCOUNT');
@@ -128,17 +128,17 @@ CREATE OR REPLACE PACKAGE BODY pkg_transfer AS
     END IF;
 
     --------------------------------------------------------------------
-    -- 3) Bakiye yeterli mi?
-    -- chk_balance constraint'i son savunma hattı; asıl kontrol burada.
+    -- 3) Is the balance sufficient?
+    -- The chk_balance constraint is the last line of defence; this is the real check.
     --------------------------------------------------------------------
     IF v_from_balance < p_amount THEN
       RAISE_APPLICATION_ERROR(-20001, 'INSUFFICIENT_FUNDS');
     END IF;
 
     --------------------------------------------------------------------
-    -- 4) Günlük transfer limiti.
-    -- Bugünkü TRANSFER_OUT toplamı gönderen hesabın kendi para biriminde
-    -- tutulur; daily_limit de aynı para biriminde tanımlıdır.
+    -- 4) Daily transfer limit.
+    -- Today's TRANSFER_OUT total is expressed in the sender's own currency,
+    -- and daily_limit is defined in that same currency.
     --------------------------------------------------------------------
     SELECT NVL(SUM(amount), 0)
       INTO v_today_out
@@ -153,8 +153,9 @@ CREATE OR REPLACE PACKAGE BODY pkg_transfer AS
     END IF;
 
     --------------------------------------------------------------------
-    -- 5) Para birimi dönüşümü.
-    -- Gönderenden p_amount düşer, alıcıya kurla çevrilmiş tutar eklenir.
+    -- 5) Currency conversion.
+    -- p_amount is debited from the sender; the converted amount is credited
+    -- to the receiver.
     --------------------------------------------------------------------
     IF v_from_currency = v_to_currency THEN
       v_credit_amount := p_amount;
@@ -174,15 +175,15 @@ CREATE OR REPLACE PACKAGE BODY pkg_transfer AS
     END IF;
 
     --------------------------------------------------------------------
-    -- 6) Referans numarası.
-    -- Transferin iki bacağı da aynı referansı paylaşır; ekstrede
-    -- eşleştirmeyi bu sağlar.
+    -- 6) Reference number.
+    -- Both legs of the transfer share one reference; that is what ties them
+    -- together on a statement.
     --------------------------------------------------------------------
     p_reference := RAWTOHEX(SYS_GUID());
 
     --------------------------------------------------------------------
-    -- 7) Gönderen: bakiyeyi düş + TRANSFER_OUT kaydı.
-    -- RETURNING ile güncel bakiye alınır, ayrıca SELECT atmaya gerek yok.
+    -- 7) Sender: debit the balance and write the TRANSFER_OUT row.
+    -- RETURNING hands back the new balance, so no extra SELECT is needed.
     --------------------------------------------------------------------
     UPDATE ACCOUNTS
        SET balance = balance - p_amount
@@ -196,8 +197,8 @@ CREATE OR REPLACE PACKAGE BODY pkg_transfer AS
        p_amount, v_from_balance, p_reference, p_desc);
 
     --------------------------------------------------------------------
-    -- 8) Alıcı: bakiyeyi ekle + TRANSFER_IN kaydı.
-    -- Alıcı bacağındaki tutar çevrilmiş tutardır.
+    -- 8) Receiver: credit the balance and write the TRANSFER_IN row.
+    -- The amount on the receiving leg is the converted amount.
     --------------------------------------------------------------------
     UPDATE ACCOUNTS
        SET balance = balance + v_credit_amount
@@ -211,13 +212,13 @@ CREATE OR REPLACE PACKAGE BODY pkg_transfer AS
        v_credit_amount, v_to_balance, p_reference, p_desc);
 
     --------------------------------------------------------------------
-    -- 9) Hepsi ya da hiçbiri.
+    -- 9) All or nothing.
     --------------------------------------------------------------------
     COMMIT;
 
   EXCEPTION
     WHEN NO_DATA_FOUND THEN
-      -- IBAN'lardan biri yok: adım 1'deki SELECT INTO buraya düşer.
+      -- One of the IBANs does not exist: the SELECT INTO in step 1 lands here.
       ROLLBACK;
       RAISE_APPLICATION_ERROR(-20006, 'ACCOUNT_NOT_FOUND');
     WHEN OTHERS THEN

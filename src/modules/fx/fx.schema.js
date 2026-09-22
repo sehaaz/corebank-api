@@ -1,2 +1,2 @@
-// GET /api/rates girdi almaz; modül yapısını bozmamak için boş kalıyor.
+// GET /api/rates takes no input; kept empty so every module has the same file layout.
 module.exports = { list: [] };

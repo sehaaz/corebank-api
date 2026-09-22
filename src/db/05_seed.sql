@@ -1,3 +1,10 @@
+-- Bu dosya container tarafından CDB$ROOT'ta "sqlplus / as sysdba" ile
+-- çalıştırılır (gvenzl entrypoint). Objelerin SYS yerine uygulama şemasında
+-- oluşması için önce doğru PDB'ye ve şemaya geçilir.
+-- COREBANK, .env'deki DB_USER ile aynı olmalıdır.
+ALTER SESSION SET CONTAINER = XEPDB1;
+ALTER SESSION SET CURRENT_SCHEMA = COREBANK;
+
 -- Demo veri: 3 müşteri (biri TELLER), hesapları ve çapraz kurlar.
 -- Parolalar bcrypt cost 12. Demo şifreleri:
 --   ayse@corebank.test  / Demo1234!

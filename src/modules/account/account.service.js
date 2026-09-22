@@ -1,25 +1,13 @@
 const AppError = require('../../shared/errors/AppError');
 const repo = require('./account.repository');
 
-const BANK_CODE = '00061';
-const RESERVED = '0';
-
-// Faz 3'te fn_generate_iban'a taşınacak.
-function generateIban(accountId) {
-  const bban = BANK_CODE + RESERVED + String(accountId).padStart(16, '0');
-  const rearranged = `${bban}TR00`.replace(/[A-Z]/g, (c) => String(c.charCodeAt(0) - 55));
-  let remainder = 0;
-  for (const digit of rearranged) remainder = (remainder * 10 + Number(digit)) % 97;
-  return `TR${String(98 - remainder).padStart(2, '0')}${bban}`;
-}
-
 function round2(value) {
   return Math.round(value * 100) / 100;
 }
 
 async function open(conn, customerId, currency) {
   const id = await repo.nextId(conn);
-  const iban = generateIban(id);
+  const iban = await repo.generateIban(conn, id);
   await repo.insert(conn, { id, customerId, iban, currency });
   return { id, iban, currency, balance: 0, status: 'ACTIVE' };
 }

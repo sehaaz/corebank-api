@@ -15,6 +15,24 @@ function movement(handler) {
   };
 }
 
+// Transfer withTransaction ile sarmalanmaz: pkg_transfer.do_transfer kendi
+// COMMIT'ini atar, bağlantı yönetimi servis katmanında yapılır.
+async function transfer(req, res, next) {
+  try {
+    const { fromIban, toIban, amount, description } = req.body;
+    const result = await svc.transfer({
+      fromIban,
+      toIban,
+      amount,
+      description,
+      customerId: req.user.customerId,
+    });
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 /** Sadece tarih verilmişse günün tamamını kapsa diye üst sınır ertesi güne alınır. */
 function parseTo(value) {
   if (!value) return null;
@@ -44,5 +62,6 @@ async function statement(req, res, next) {
 module.exports = {
   deposit: movement(svc.deposit),
   withdraw: movement(svc.withdraw),
+  transfer,
   statement,
 };

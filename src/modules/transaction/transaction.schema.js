@@ -13,6 +13,18 @@ const movement = [
   body('description').optional({ values: 'falsy' }).isString().isLength({ max: 200 }),
 ];
 
+const transfer = [
+  body('fromIban').matches(/^TR\d{24}$/).withMessage('Geçersiz gönderen IBAN'),
+  body('toIban').matches(/^TR\d{24}$/).withMessage('Geçersiz alıcı IBAN'),
+  body('amount')
+    .isFloat({ gt: 0 })
+    .withMessage('Tutar pozitif olmalı')
+    .custom(twoDecimals)
+    .withMessage('Tutar en fazla 2 ondalık olabilir')
+    .toFloat(),
+  body('description').optional({ values: 'falsy' }).isString().isLength({ max: 200 }),
+];
+
 const statement = [
   param('iban').matches(/^TR\d{24}$/).withMessage('Geçersiz IBAN'),
   query('from').optional().isISO8601(),
@@ -21,4 +33,4 @@ const statement = [
   query('size').optional().isInt({ min: 1, max: 100 }).toInt(),
 ];
 
-module.exports = { movement, statement };
+module.exports = { movement, transfer, statement };

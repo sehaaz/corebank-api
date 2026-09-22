@@ -1,3 +1,10 @@
+-- Bu dosya container tarafından CDB$ROOT'ta "sqlplus / as sysdba" ile
+-- çalıştırılır (gvenzl entrypoint). Objelerin SYS yerine uygulama şemasında
+-- oluşması için önce doğru PDB'ye ve şemaya geçilir.
+-- COREBANK, .env'deki DB_USER ile aynı olmalıdır.
+ALTER SESSION SET CONTAINER = XEPDB1;
+ALTER SESSION SET CURRENT_SCHEMA = COREBANK;
+
 -- CoreBank — tablolar, sequence'ler, index'ler
 -- Mimari bölüm 5. Modül sahipliği tekildir; her tablo tek bir modüle aittir.
 
@@ -43,7 +50,8 @@ CREATE TABLE TRANSACTIONS (
   id            NUMBER        PRIMARY KEY,
   account_id    NUMBER        NOT NULL,
   counter_iban  VARCHAR2(26),
-  type          VARCHAR2(10)  NOT NULL,
+  -- 'TRANSFER_OUT' 12 karakter; VARCHAR2(10) en uzun değeri alamıyor.
+  type          VARCHAR2(12)  NOT NULL,
   amount        NUMBER(18,2)  NOT NULL,
   balance_after NUMBER(18,2)  NOT NULL,
   reference_no  VARCHAR2(36)  NOT NULL,  -- transferin iki bacağı aynı referansı paylaşır

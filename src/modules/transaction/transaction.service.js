@@ -1,5 +1,6 @@
 const { randomUUID } = require('node:crypto');
 const account = require('../account');
+const { getConnection } = require('../../shared/db/pool');
 const AppError = require('../../shared/errors/AppError');
 const repo = require('./transaction.repository');
 
@@ -48,6 +49,34 @@ async function withdraw(conn, params) {
   return move(conn, { ...params, type: 'WITHDRAW' });
 }
 
+/**
+ * Transfer, pkg_transfer.do_transfer içinde yapılır. Prosedür iki hesabı
+ * IBAN sırasına göre kilitler, iki bacağı da yazar ve kendi COMMIT'ini atar.
+ * Bu yüzden burada withTransaction KULLANILMAZ — sarmalanırsa prosedürün
+ * commit'inin üstüne ikinci bir commit atılmış olurdu. Sadece bağlantı
+ * alınır ve iş bitince kapatılır.
+ */
+async function transfer({ fromIban, toIban, amount, description, customerId }) {
+  assertAmount(amount);
+
+  const conn = await getConnection();
+  try {
+    // Sahiplik DB'den doğrulanır; IBAN'ı bilmek yetmez.
+    await account.assertOwnership(conn, fromIban, customerId);
+
+    const referenceNo = await repo.callTransfer(conn, {
+      fromIban,
+      toIban,
+      amount,
+      description: description || null,
+    });
+
+    return { referenceNo, fromIban, toIban, amount, description: description || null };
+  } finally {
+    await conn.close();
+  }
+}
+
 async function statement(conn, { iban, customerId, from, to, page, size }) {
   const acc = await account.assertOwnership(conn, iban, customerId);
   const range = { from, to };
@@ -60,4 +89,4 @@ async function statement(conn, { iban, customerId, from, to, page, size }) {
   return { page, size, total, items };
 }
 
-module.exports = { deposit, withdraw, statement };
+module.exports = { deposit, withdraw, transfer, statement };

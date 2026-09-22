@@ -15,6 +15,24 @@ function toTransaction(row) {
 
 const TS = oracledb.DB_TYPE_TIMESTAMP;
 
+/**
+ * pkg_transfer.do_transfer çağrısı. Prosedür iki hesabı kilitler, kaydı yazar
+ * ve kendi COMMIT'ini atar; burada commit/rollback yapılmaz.
+ */
+async function callTransfer(conn, { fromIban, toIban, amount, description }) {
+  const result = await conn.execute(
+    `BEGIN pkg_transfer.do_transfer(:fromIban, :toIban, :amount, :description, :reference); END;`,
+    {
+      fromIban,
+      toIban,
+      amount,
+      description,
+      reference: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 36 },
+    }
+  );
+  return result.outBinds.reference;
+}
+
 async function insert(conn, tx) {
   const result = await conn.execute(
     `INSERT INTO TRANSACTIONS
@@ -69,4 +87,4 @@ async function findByAccount(conn, accountId, { from, to, offset, limit }) {
   return result.rows.map(toTransaction);
 }
 
-module.exports = { insert, countByAccount, findByAccount };
+module.exports = { callTransfer, insert, countByAccount, findByAccount };

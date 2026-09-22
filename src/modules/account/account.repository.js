@@ -18,6 +18,15 @@ async function nextId(conn) {
   return result.rows[0].ID;
 }
 
+/** IBAN üretimi PL/SQL tarafında (fn_generate_iban). */
+async function generateIban(conn, id) {
+  const result = await conn.execute(
+    `SELECT fn_generate_iban(:id) AS IBAN FROM DUAL`,
+    { id }
+  );
+  return result.rows[0].IBAN;
+}
+
 async function insert(conn, { id, customerId, iban, currency }) {
   await conn.execute(
     `INSERT INTO ACCOUNTS (id, customer_id, iban, currency)
@@ -77,5 +86,6 @@ async function findSummariesByCustomer(conn, customerId) {
 }
 
 module.exports = {
-  nextId, insert, findByIban, lockByIban, updateBalance, updateStatus, findSummariesByCustomer,
+  nextId, generateIban, insert, findByIban, lockByIban, updateBalance, updateStatus,
+  findSummariesByCustomer,
 };

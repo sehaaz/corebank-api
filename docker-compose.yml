@@ -15,8 +15,10 @@ services:
       test: ["CMD", "healthcheck.sh"]
       interval: 10s
       timeout: 5s
-      retries: 30
-      start_period: 60s
+      retries: 60
+      # Oracle ilk açılışta veri dosyalarını açar; bu makinede ~6.5 dk sürdü.
+      # start_period boyunca başarısız denemeler retries'a sayılmaz.
+      start_period: 900s
 
   api:
     build: .

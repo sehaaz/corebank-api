@@ -1,6 +1,8 @@
 const express = require('express');
 const helmet = require('helmet');
 const identity = require('./modules/identity');
+const account = require('./modules/account');
+const transaction = require('./modules/transaction');
 const AppError = require('./shared/errors/AppError');
 const errorHandler = require('./shared/middleware/errorHandler');
 
@@ -12,7 +14,9 @@ app.use(express.json());
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use('/api', identity.router);
-// account, transaction, fx, audit router'ları buraya mount edilecek.
+app.use('/api', account.router);
+app.use('/api', transaction.router);
+// fx, audit router'ları buraya mount edilecek.
 
 app.use((req, res, next) => next(new AppError(404, 'NOT_FOUND', 'Endpoint bulunamadı')));
 app.use(errorHandler);

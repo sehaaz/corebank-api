@@ -61,7 +61,7 @@ sequenceDiagram
     AC->>DB: SELECT ... FROM ACCOUNTS WHERE iban = :iban
     DB-->>AC: row
     AC-->>SV: account, or AppError(403, FORBIDDEN)
-    SV->>DB: BEGIN pkg_transfer.do_transfer(...); END;
+    SV->>DB: pkg_transfer.do_transfer(...) in an anonymous PL/SQL block
     Note over DB: lock both rows in IBAN order,<br/>debit, credit, write two ledger rows, COMMIT
     DB-->>SV: p_reference (OUT)
     SV->>DB: conn.close()
@@ -185,9 +185,6 @@ That is strictly more machinery and strictly weaker guarantees, so for this
 domain it is a regression rather than an upgrade. The interesting constraint is
 therefore not "how do I distribute this?" but "how do I keep hard module borders
 without distribution?" - which is what the rest of this README is about.
-
-The same problem solved with microservices and a saga:
-**[EventTix](https://github.com/sehaaz/eventtix)**
 
 ---
 

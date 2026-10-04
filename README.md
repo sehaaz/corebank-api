@@ -1,10 +1,36 @@
 # CoreBank API
 
+[![CI](https://github.com/sehaaz/corebank/actions/workflows/ci.yml/badge.svg)](https://github.com/sehaaz/corebank/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Node.js 20](https://img.shields.io/badge/Node.js-20-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white)
+![Oracle XE 21c](https://img.shields.io/badge/Oracle-XE%2021c%20%2B%20PL%2FSQL-F80000?logo=oracle&logoColor=white)
+
+**Banking API where a money transfer is a single atomic PL/SQL call that cannot
+deadlock or overdraw - proven by concurrency tests against a real Oracle database.**
+
 A banking transaction service - customers, accounts, deposits, withdrawals, money
 transfers and statements - built as a **modular monolith** on Node.js and Oracle,
 with raw SQL and PL/SQL instead of an ORM.
 
 **Stack:** Node.js 20 · Express · Oracle XE 21c (`node-oracledb`, thin mode) · JWT · Docker Compose · Jest
+
+---
+
+## Engineering highlights
+
+- **Atomic transfer in one stored procedure** - [`pkg_transfer.do_transfer`](src/db/03_packages.sql#L69)
+  locks, validates, converts currency, writes both ledger legs under one reference and
+  commits in a single round trip; any failure rolls back everything.
+- **Deadlock prevention by lock ordering** - both rows are locked with `SELECT ... FOR UPDATE`
+  in [IBAN order](src/db/03_packages.sql#L101), not sender/receiver order. Proven by
+  [40 simultaneous A→B / B→A transfers](tests/integration/deadlock.integration.test.js) with zero `ORA-00060`.
+- **No overdraft under concurrency** - [10 parallel transfers against a balance of 100](tests/integration/concurrency.integration.test.js):
+  exactly 5 succeed, 5 get `409`, total money is conserved.
+- **Database-level audit trail** - [`trg_accounts_audit`](src/db/04_triggers.sql#L23) writes every
+  balance/status change to `AUDIT_LOG` as JSON, regardless of which code path made it.
+- **Module boundaries enforced by lint** - [`import/no-restricted-paths`](.eslintrc.json) fails the
+  build if a module imports another module's internals; `npm run lint` runs in CI.
 
 ---
 
@@ -106,7 +132,7 @@ flowchart TD
 
 ---
 
-## Getting started
+## Quick start
 
 ```bash
 cp .env.example .env
@@ -542,8 +568,6 @@ Ten transfers of 20 fired simultaneously with `Promise.all` against an account
 holding 100. Without the row lock all ten would read "balance is sufficient" and
 the account would end at -100.
 
-<!-- Paste a terminal screenshot here if you want one; the text output is below. -->
-
 ```console
 ==========================================================
   CONCURRENCY TEST - SELECT ... FOR UPDATE PROOF
@@ -570,8 +594,6 @@ the account would end at -100.
 Twenty `A → B` transfers and twenty `B → A` transfers issued at the same time.
 With a role-based lock order this deadlocks; with the IBAN order it does not.
 
-<!-- Paste a terminal screenshot here if you want one; the text output is below. -->
-
 ```console
 ==========================================================
   DEADLOCK TEST - FIXED LOCK ORDER PROOF
@@ -592,7 +614,7 @@ With a role-based lock order this deadlocks; with the IBAN order it does not.
 
 ---
 
-## Tests
+## Running tests
 
 ```bash
 npm test                  # unit tests, mocked repositories, no database needed
@@ -611,6 +633,9 @@ npm run lint              # module boundary check
 Integration tests seed their own customers and accounts and delete them in
 `afterAll`. They run with `--runInBand` because each file owns an
 `node-oracledb` pool.
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `npm run lint` and
+`npm test` on every push; the integration tests need Oracle and are run locally.
 
 ---
 
